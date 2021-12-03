@@ -1,0 +1,45 @@
+import 'ren/array' as Array exposing { #continue, #stop }
+import 'ren/compare' as Compare
+import 'ren/console' as Console
+import 'ren/file' as File
+import 'ren/function' as Function
+import 'ren/logic' as Logic
+import 'ren/math' as Math
+import 'ren/maybe' as Maybe exposing { #just, #nothing }
+import 'ren/result' as Result exposing { #ok, #err }
+import 'ren/string' as String
+
+pub fun main = [ year, day, part, test ] => {
+    let path = if test then 'test.txt' else 'input.txt'
+    let input = File.open path { sync: true }
+
+    ret input
+        |> Result.map parse
+        |> Result.andThen (solve part)
+}
+
+pub fun parse = input => {
+    ret input
+}
+
+pub fun solve = part input => {
+    ret when part
+        is '01' => #ok (solvePartOne input)
+        is '02' => #ok (solvePartTwo input)
+        else    => #err `Unrecognised part: ${part}.`
+}
+
+// PART ONE --------------------------------------------------------------------
+
+pub fun solvePartOne = input => {
+    ret input
+}
+
+// PART TWO --------------------------------------------------------------------
+
+pub fun solvePartOne = input => {
+    ret input
+}
+
+// UTILS -----------------------------------------------------------------------
+
