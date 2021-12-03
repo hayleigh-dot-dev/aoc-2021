@@ -1,0 +1,84 @@
+import 'ren/array' as Array
+import 'ren/file' as File
+import 'ren/result' as Result exposing { #ok, #err }
+import 'ren/string' as String
+
+pub fun main = [ year, day, part, test ] => {
+    let path = if test then 'test.txt' else 'input.txt'
+
+    ret File.open path { sync: true }
+        |> Result.map parse
+        |> Result.andThen (solve part)
+}
+
+fun parse = input => {
+    ret String.split '\\n' input
+        |> Array.filterMap (fun line =>
+            when String.split ' ' line
+                is [ 'forward', n ] =>
+                    Maybe.map #forward (String.toNumber n)
+
+                is [ 'down', n ] =>
+                    Maybe.map #down (String.toNumber n)
+
+                is [ 'up', n ] =>
+                    Maybe.map #up (String.toNumber n)
+
+                else =>
+                    #nothing
+        )
+}
+
+enum Instruction
+    = #forward _
+    | #down _
+    | #up _
+
+fun solve = part input => {
+    ret when part
+        is '01' =>
+            #ok (solvePartOne input)
+
+        is '02' =>
+            #ok (solvePartTwo input)
+
+        else =>
+            #err `Unknown part: '${part}'.`
+}
+
+fun solvePartOne = instructions => {
+    ret instructions
+        |> Array.foldl
+            (fun [ horizontal, depth ] instruction =>
+                when instruction
+                    is #forward n =>
+                        [ horizontal + n, depth ]
+
+                    is #down n =>
+                        [ horizontal, depth + n ]
+
+                    is #up n =>
+                        [ horizontal, depth - n ]
+            )
+            [ 0, 0 ]
+        |> Array.product
+}
+
+fun solvePartTwo = instructions => {
+    ret instructions
+        |> Array.foldl
+            (fun [ horizontal, depth, aim ] instruction =>
+                when instruction
+                    is #forward n =>
+                        [ horizontal + n, depth + aim * n, aim ]
+
+                    is #down n =>
+                        [ horizontal, depth, aim + n ]
+
+                    is #up n =>
+                        [ horizontal, depth, aim - n ]
+            )
+            [ 0, 0, 0 ]
+        |> Array.take 2
+        |> Array.product
+}
