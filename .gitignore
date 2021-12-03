@@ -1,1 +1,5 @@
+# Compiled artifacts
 *.ren.mjs
+
+# Unique puzzle input
+input.txt
