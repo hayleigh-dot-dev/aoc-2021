@@ -47,7 +47,7 @@ pub fun solvePartOne = input => {
 // PART TWO --------------------------------------------------------------------
 
 pub fun solvePartTwo = input => {
-    let calcBy = fun critera => 
+    let calcBy = fun criteria => 
         Array.foldlUntil (fun lines pos => {
             let col = (cols lines[0].length lines)[pos]
             let size = lines.length
