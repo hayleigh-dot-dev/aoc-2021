@@ -1,0 +1,28 @@
+import "ren/array" as Array
+import "ren/console" as Console exposing { log }
+import "ren/file" as File
+import "ren/string" as String
+import "ren/result" as Result exposing { #ok, #err }
+
+pub fun main = [ year, day, part, test ] => {
+    let path = if test then "test.txt" else "input.txt"
+
+    ret File.open path { sync: true } 
+        |> Result.map (String.split "\\n" >> Array.filterMap String.toNumber)
+        |> Result.andThen (solve part)
+}
+
+fun solve = part input => {
+    ret when part
+        is '01' => #ok (solvePartOne input)
+        is '02' => #ok (solvePartTwo input)
+        else    => #err `Unknown part: "${part}".`
+}
+
+fun solvePartOne = numbers =>
+    Array.map2 (fun x y => if x < y then 1 else 0) numbers (Array.drop 1 numbers)
+        |> Array.sum
+
+fun solvePartTwo = numbers =>
+    Array.map3 (fun x y z => x + y + z) numbers (Array.drop 1 numbers) (Array.drop 2 numbers)
+        |> solvePartOne
