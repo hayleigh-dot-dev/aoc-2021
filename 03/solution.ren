@@ -1,0 +1,83 @@
+import 'ren/array' as Array exposing { #continue, #stop }
+import 'ren/file' as File
+import 'ren/math' as Math
+import 'ren/maybe' as Maybe exposing { #just, #nothing }
+import 'ren/result' as Result exposing { #ok, #err }
+import 'ren/string' as String
+
+pub fun main = [ year, day, part, test ] => {
+    let path = if test then 'test.txt' else 'input.txt'
+    let input = File.open path { sync: true }
+
+    ret input
+        |> Result.map parse
+        |> Result.andThen (solve part)
+}
+
+pub fun parse = input => {
+    ret input
+        |> String.split '\\n'
+        |> Array.map (String.split '' >> Array.filterMap String.toNumber)
+}
+
+pub fun solve = part input => {
+    ret when part
+        is '01' => #ok (solvePartOne input)
+        is '02' => #ok (solvePartTwo input)
+        else    => #err `Unrecognised part: ${part}.`
+}
+
+// PART ONE --------------------------------------------------------------------
+
+pub fun solvePartOne = input => {
+    let calcBy = fun criteria => {
+        let numberSize = input[0].length
+        let inputSize = input.length
+
+        ret cols numberSize input |> Array.map (criteria inputSize) |> binaryDigitsToNumber
+    }
+
+    let gamma = calcBy mcb
+    let epsilon = calcBy lcb
+
+    ret Maybe.map2 Math.mul gamma epsilon
+        |> Maybe.unwrap
+}
+
+// PART TWO --------------------------------------------------------------------
+
+pub fun solvePartTwo = input => {
+    let calcBy = fun critera => 
+        Array.foldlUntil (fun lines pos => {
+            let col = (cols lines[0].length lines)[pos]
+            let size = lines.length
+        
+            let shouldKeep = fun line => {
+                ret line[pos] == criteria lines.length col
+            }
+
+            ret when lines
+                is [ bits ] if lines.length == 1 => 
+                    #stop (binaryDigitsToNumber bits)
+
+                is _ =>
+                    #continue (Array.filter shouldKeep lines)
+        }) input (Array.range 0 input.length)
+
+    let oxygen = calcBy mcb
+    let co2 = calcBy lcb
+
+    ret Maybe.map2 Math.mul oxygen co2
+        |> Maybe.unwrap
+}
+
+// UTILS -----------------------------------------------------------------------
+
+fun cols = size lines => {
+    ret lines |> Array.foldr (fun bits line => Array.map2 (::) line bits) (Array.repeat size []) 
+}
+
+fun mcb = size col => if Array.sum col < size / 2 then '0' else '1'
+fun lcb = size col => if Array.sum col < size / 2 then '1' else '0'
+
+let binaryDigitsToNumber = String.join '' >> String.append '0b' >> String.toNumber
