@@ -9,36 +9,40 @@ import 'ren/maybe' as Maybe exposing { #just, #nothing }
 import 'ren/result' as Result exposing { #ok, #err }
 import 'ren/string' as String
 
-pub fun main = [ year, day, part, test ] => {
-    let path = if test then 'test.txt' else 'input.txt'
-    let input = File.open path { sync: true }
+import '../util' as Util
 
-    ret input
+pub fun main = argv => {
+    let path = if Array.member '--test' argv then 'test.txt' else 'input.txt'
+    let withPerfLogs = Array.member '--perf' argv
+
+    ret File.open path { sync: true }
         |> Result.map parse
-        |> Result.andThen (solve part)
+        |> Result.andThen (solve { withPerfLogs })
 }
 
 pub fun parse = input => {
-    ret input
+    ret Util.todo `Implement input parsing.`
 }
 
-pub fun solve = part input => {
-    ret when part
-        is '01' => #ok (solvePartOne input)
-        is '02' => #ok (solvePartTwo input)
-        else    => #err `Unrecognised part: ${part}.`
+pub fun solve = { withPerfLogs } input => {
+    let [ partOne, timer ] = Util.time #nothing 'Part One' (fun _ => solvePartOne input)
+    let [ partTwo, timer ] = Util.time (#just timer) 'Part Two' (fun _ => solvePartTwo input)
+
+    let _ = if withPerfLogs then Console.log (timer.print ()) else ()
+
+    ret [ partOne, partTwo ]
 }
 
 // PART ONE --------------------------------------------------------------------
 
 pub fun solvePartOne = input => {
-    ret input
+    ret Util.todo `Implement part one.`
 }
 
 // PART TWO --------------------------------------------------------------------
 
-pub fun solvePartOne = input => {
-    ret input
+pub fun solvePartTwo = input => {
+    ret Util.todo `Implement part two.`
 }
 
 // UTILS -----------------------------------------------------------------------
