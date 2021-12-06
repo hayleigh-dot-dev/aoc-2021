@@ -1,0 +1,67 @@
+import 'ren/array' as Array exposing { #continue, #stop }
+import 'ren/compare' as Compare
+import 'ren/console' as Console
+import 'ren/file' as File
+import 'ren/function' as Function exposing { always }
+import 'ren/logic' as Logic
+import 'ren/math' as Math
+import 'ren/maybe' as Maybe exposing { #just, #nothing }
+import 'ren/result' as Result exposing { #ok, #err }
+import 'ren/string' as String
+import 'ren/tuple' as Tuple
+
+import '../util' as Util
+
+pub fun main = argv => {
+    let path = if Array.member '--test' argv then 'test.txt' else 'input.txt'
+    let withPerfLogs = Array.member '--perf' argv
+
+    ret File.open path { sync: true }
+        |> Result.map parse
+        |> Result.andThen (solve { withPerfLogs })
+}
+
+pub fun parse = input => {
+    ret input
+        |> String.split ','
+        |> Array.filterMap String.toNumber
+}
+
+pub fun solve = { withPerfLogs } input => {
+    let [ partOne, timer ] = Util.time #nothing 'Part One' (fun _ => solvePartOne input)
+    let [ partTwo, timer ] = Util.time (#just timer) 'Part Two' (fun _ => solvePartTwo input)
+
+    let _ = if withPerfLogs then Console.log (timer.print ()) else ()
+
+    ret [ partOne, partTwo ]
+}
+
+
+// PART ONE --------------------------------------------------------------------
+
+pub let solvePartOne = solveFor 80
+
+// PART TWO --------------------------------------------------------------------
+
+pub let solvePartTwo = solveFor 256
+
+// UTILS -----------------------------------------------------------------------
+
+pub fun solveFor = days input => 
+    initialiseCounts input
+        |> Array.iterate days advance
+        |> Array.sum
+
+pub fun initialiseCounts = fish =>
+    Array.foldl 
+        (fun counts daysSinceBirthed => Array.updateAt daysSinceBirthed Math.incr counts) 
+        (Array.repeat 9 0)
+        fish
+
+pub fun advance = fish =>
+    fish |> Array.indexedMap (fun i _ => 
+        when i
+            is 6 => fish[0] + fish[7]
+            is 8 => fish[0]
+            else => fish[i + 1]
+    )
