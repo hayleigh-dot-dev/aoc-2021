@@ -1,0 +1,20 @@
+import 'ren/console' exposing { log }
+import 'ren/object' exposing { construct }
+
+import 'ext performance-measure' as Perf
+
+pub fun time = mTimer name f => {
+    let timer = Maybe.withDefault (construct Perf.default []) mTimer
+    let _ = Array.repeat 100 f |> Array.forEach (fun f => {
+        let _ = timer.start name
+        let _ = f ()
+        let _ = timer.end name
+
+        ret ()
+    })
+    ret [ f (), timer ]
+}
+
+pub fun todo = message => {
+    ret eval `throw new Error('TODO: ${message}')`
+}
