@@ -1,0 +1,121 @@
+import 'ren/array' as Array exposing { #continue, #stop }
+import 'ren/compare' as Compare
+import 'ren/console' as Console
+import 'ren/file' as File
+import 'ren/function' as Function
+import 'ren/logic' as Logic
+import 'ren/math' as Math
+import 'ren/maybe' as Maybe exposing { #just, #nothing }
+import 'ren/parser' as Parser
+import 'ren/regex' as Regex
+import 'ren/result' as Result exposing { #ok, #err }
+import 'ren/string' as String
+import 'ren/tuple' as Tuple
+
+pub fun main = [ year, day, part, test ] => {
+    let path = if test then 'test.txt' else 'input.txt'
+    let input = File.open path { sync: true }
+
+    ret input
+        |> Result.andThen parse
+        |> Result.andThen (solve part)
+}
+
+pub fun parse = input => {
+    let parse = Parser.many Parser.whitespace Parser.int
+
+    ret String.split '\\n\\n' input
+        |> Array.uncons
+        |> Maybe.unwrap
+        |> Tuple.mapFirst (String.split ',' >> Array.filterMap String.toNumber)
+        |> Tuple.mapSecond (Array.map (Parser.run parse) >> Result.sequence)
+        |> Tuple.apply (fun draw boards => Result.map (Tuple.pair draw) boards)
+}
+
+pub fun solve = part input => {
+    ret when part
+        is '01' => #ok (solvePartOne input) 
+        is '02' => #ok (solvePartTwo input)
+        else    => #err `Unrecognised part: ${part}.`
+}
+
+// PART ONE --------------------------------------------------------------------
+
+pub fun solvePartOne = [ draw, boards ] => {
+    let mark = fun n board => Array.map (fun m => if m == n then 'x' else m) board
+    let hasCompletedCol = fun board => getCols 5 board |> Array.any (Array.all (Compare.eq 'x'))
+    let hasCompletedRow = fun board => getRows 5 board |> Array.any (Array.all (Compare.eq 'x'))
+
+    ret Array.foldlUntil
+        (fun boards n => {
+            let markedBoards = Array.map (mark n) boards
+            ret when Array.filter (fun board => hasCompletedRow board || hasCompletedCol board) markedBoards
+                is [ completedBoard ] =>
+                    #stop (completedBoard |> Array.filter (Compare.notEq 'x') |> Array.sum |> Math.mul n)
+
+                else =>
+
+                    #continue markedBoards
+        })
+        boards
+        draw
+}
+
+// PART TWO --------------------------------------------------------------------
+
+pub fun solvePartTwo = [ draw, boards ] => {
+    let mark = fun n board => Array.map (fun m => if m == n then 'x' else m) board
+    let hasCompletedCol = fun board => getCols 5 board |> Array.any (Array.all (Compare.eq 'x'))
+    let hasCompletedRow = fun board => getRows 5 board |> Array.any (Array.all (Compare.eq 'x'))
+
+    let completedBoards = 
+        Array.foldl
+            (fun [ boards, lastCompletedBoards ] n => {
+                let markedBoards = Array.map (mark n) boards
+                let completedBoards = Array.filter (fun board => hasCompletedRow board || hasCompletedCol board) markedBoards
+
+                ret if Array.isEmpty completedBoards then
+                    [ markedBoards, lastCompletedBoards ]
+                    
+                else 
+                    [ markedBoards, Array.map (Tuple.pair n) completedBoards :: lastCompletedBoards ]
+            })
+            (Tuple.pair boards [])
+            draw
+            |> Tuple.second
+            |> Console.log
+ 
+    ret Array.foldlUntil
+        (fun lastCompletedBoards currentCompletedBoards => {
+            let _ = console.log lastCompletedBoards
+            let _ = console.log currentCompletedBoards
+            ret if lastCompletedBoards.length == currentCompletedBoards.length then {
+                let [ [ n, [ _, board ] ] ] = Array.filter (fun [ _, board ] => Array.any (Tuple.second >> Compare.eq board) currentCompletedBoards) lastCompletedBoards
+                ret #stop (board |> Array.filter (Compare.notEq 'x') |> Array.sum |> Math.mul n)
+            } else {
+                ret #continue currentCompletedBoards
+            }
+        })
+        (Array.take 1 completedBoards)
+        (Array.drop 1 completedBoards)
+}
+
+// UTILS -----------------------------------------------------------------------
+
+fun getRows = width arr => {
+    let recurse = fun rows arr => 
+        if Array.isEmpty arr then 
+            rows
+
+        else 
+            Array.partition width arr 
+                |> Tuple.mapFirst (fun row => row :: rows) 
+                |> Tuple.apply recurse
+
+    ret recurse [] arr |> Array.reverse
+}
+
+fun getCols = width arr => {
+    ret getRows width arr
+        |> Array.foldr (fun cols row => Array.map2 (::) row cols) (Array.repeat width [])
+}
