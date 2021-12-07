@@ -8,6 +8,7 @@ import 'ren/math' as Math
 import 'ren/maybe' as Maybe exposing { #just, #nothing }
 import 'ren/result' as Result exposing { #ok, #err }
 import 'ren/string' as String
+import 'ren/tuple' as Tuple
 
 import '../util' as Util
 
@@ -24,7 +25,14 @@ pub fun parse = input => {
     ret Util.todo `Implement input parsing.`
 }
 
-pub fun solve = { withPerfLogs } input => {
+pub fun solve = { withPerfLogs } input => 
+    if withPerfLogs then 
+        solveWithPerfLogs input 
+
+    else
+        Tuple.pair (solvePartOne input) (solvePartTwo input)
+
+pub fun solveWithPerfLogs = input => {
     let [ partOne, timer ] = Util.time #nothing 'Part One' (fun _ => solvePartOne input)
     let [ partTwo, timer ] = Util.time (#just timer) 'Part Two' (fun _ => solvePartTwo input)
 
