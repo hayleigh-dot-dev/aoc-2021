@@ -1,17 +1,25 @@
 import 'ren/array' as Array exposing { #continue, #stop }
+import 'ren/console' as Console
 import 'ren/file' as File
 import 'ren/math' as Math
 import 'ren/maybe' as Maybe exposing { #just, #nothing }
 import 'ren/result' as Result exposing { #ok, #err }
 import 'ren/string' as String
 
-pub fun main = [ year, day, part, test ] => {
-    let path = if test then 'test.txt' else 'input.txt'
-    let input = File.open path { sync: true }
+import '../util' as Util
 
-    ret input
-        |> Result.map parse
-        |> Result.andThen (solve part)
+pub fun main = [ year, day, part, option ] => {
+    let path = if option == 'test' then 'test.txt' else 'input.txt'
+    let input = File.open path { sync: true } |> Result.map parse |> Result.unwrap
+
+    ret if option == 'perf' then {
+        let [ partOne, timer ] = Util.time #nothing 'Part One' (fun _ => solvePartOne input)
+        let [ partTwo, timer ] = Util.time (#just timer) 'Part Two' (fun _ => solvePartTwo input)
+
+        let _ = Console.log (timer.print ())
+
+        ret { partOne, partTwo }
+    } else solve part input
 }
 
 pub fun parse = input => {
