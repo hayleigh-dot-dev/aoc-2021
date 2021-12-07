@@ -6,116 +6,108 @@ import 'ren/function' as Function
 import 'ren/logic' as Logic
 import 'ren/math' as Math
 import 'ren/maybe' as Maybe exposing { #just, #nothing }
-import 'ren/parser' as Parser
-import 'ren/regex' as Regex
+import 'ren/object' as Object
 import 'ren/result' as Result exposing { #ok, #err }
 import 'ren/string' as String
 import 'ren/tuple' as Tuple
 
-pub fun main = [ year, day, part, test ] => {
-    let path = if test then 'test.txt' else 'input.txt'
-    let input = File.open path { sync: true }
+import '../util' as Util
 
-    ret input
-        |> Result.andThen parse
-        |> Result.andThen (solve part)
+pub fun main = argv => {
+    let path = if Array.member '--test' argv then 'test.txt' else 'input.txt'
+    let withPerfLogs = Array.member '--perf' argv
+
+    ret File.open path { sync: true }
+        |> Result.map parse
+        |> Result.andThen (solve { withPerfLogs })
 }
 
 pub fun parse = input => {
-    let parse = Parser.many Parser.whitespace Parser.int
+    let parseRow = String.split ' ' >> Array.filter (Compare.notEq '') >> Array.filterMap String.toNumber
+    let parseBoard = String.split '\\n' >> Array.map parseRow 
 
-    ret String.split '\\n\\n' input
-        |> Array.uncons
-        |> Maybe.unwrap
-        |> Tuple.mapFirst (String.split ',' >> Array.filterMap String.toNumber)
-        |> Tuple.mapSecond (Array.map (Parser.run parse) >> Result.sequence)
-        |> Tuple.apply (fun draw boards => Result.map (Tuple.pair draw) boards)
+    let #just [ numbers, boards ] = String.split '\\n\\n' input |> Array.uncons
+
+    let numbers = String.split ',' numbers |> Array.filterMap String.toNumber
+    let boards  = Array.map (fun board => { rows: parseBoard board }) boards
+
+    ret { numbers, boards }
 }
 
-pub fun solve = part input => {
-    ret when part
-        is '01' => #ok (solvePartOne input) 
-        is '02' => #ok (solvePartTwo input)
-        else    => #err `Unrecognised part: ${part}.`
+pub fun solve = { withPerfLogs } input => {
+    ret if withPerfLogs then {
+        let [ partOne, timer ] = Util.time #nothing 'Part One' (fun _ => solvePartOne input)
+        let [ partTwo, timer ] = Util.time (#just timer) 'Part Two' (fun _ => solvePartTwo input)
+
+        let _ = Console.log (timer.print ())
+
+        ret [ partOne, partTwo ]
+    } else {
+        let partOne = solvePartOne input
+        let partTwo = solvePartTwo input
+
+        ret [ partOne, partTwo ]
+    }
 }
 
 // PART ONE --------------------------------------------------------------------
 
-pub fun solvePartOne = [ draw, boards ] => {
-    let mark = fun n board => Array.map (fun m => if m == n then 'x' else m) board
-    let hasCompletedCol = fun board => getCols 5 board |> Array.any (Array.all (Compare.eq 'x'))
-    let hasCompletedRow = fun board => getRows 5 board |> Array.any (Array.all (Compare.eq 'x'))
-
-    ret Array.foldlUntil
-        (fun boards n => {
-            let markedBoards = Array.map (mark n) boards
-            ret when Array.filter (fun board => hasCompletedRow board || hasCompletedCol board) markedBoards
-                is [ completedBoard ] =>
-                    #stop (completedBoard |> Array.filter (Compare.notEq 'x') |> Array.sum |> Math.mul n)
-
-                else =>
-
-                    #continue markedBoards
-        })
-        boards
-        draw
+pub fun solvePartOne = { numbers, boards } => {
+    ret playBingo numbers boards
+        |> Array.sortBy .winningIndex
+        |> Array.head
+        |> Maybe.map (fun { rows, winningNum } => unmarked rows |> Array.sum |> Math.mul winningNum)
 }
 
 // PART TWO --------------------------------------------------------------------
 
-pub fun solvePartTwo = [ draw, boards ] => {
-    let mark = fun n board => Array.map (fun m => if m == n then 'x' else m) board
-    let hasCompletedCol = fun board => getCols 5 board |> Array.any (Array.all (Compare.eq 'x'))
-    let hasCompletedRow = fun board => getRows 5 board |> Array.any (Array.all (Compare.eq 'x'))
-
-    let completedBoards = 
-        Array.foldl
-            (fun [ boards, lastCompletedBoards ] n => {
-                let markedBoards = Array.map (mark n) boards
-                let completedBoards = Array.filter (fun board => hasCompletedRow board || hasCompletedCol board) markedBoards
-
-                ret if Array.isEmpty completedBoards then
-                    [ markedBoards, lastCompletedBoards ]
-                    
-                else 
-                    [ markedBoards, Array.map (Tuple.pair n) completedBoards :: lastCompletedBoards ]
-            })
-            (Tuple.pair boards [])
-            draw
-            |> Tuple.second
-            |> Console.log
- 
-    ret Array.foldlUntil
-        (fun lastCompletedBoards currentCompletedBoards => {
-            let _ = console.log lastCompletedBoards
-            let _ = console.log currentCompletedBoards
-            ret if lastCompletedBoards.length == currentCompletedBoards.length then {
-                let [ [ n, [ _, board ] ] ] = Array.filter (fun [ _, board ] => Array.any (Tuple.second >> Compare.eq board) currentCompletedBoards) lastCompletedBoards
-                ret #stop (board |> Array.filter (Compare.notEq 'x') |> Array.sum |> Math.mul n)
-            } else {
-                ret #continue currentCompletedBoards
-            }
-        })
-        (Array.take 1 completedBoards)
-        (Array.drop 1 completedBoards)
+pub fun solvePartTwo = { numbers, boards } => {
+    ret playBingo numbers boards
+        |> Array.sortBy .winningIndex
+        |> Array.reverse
+        |> Array.head
+        |> Maybe.map (fun { rows, winningNum } => unmarked rows |> Array.sum |> Math.mul winningNum)
 }
 
 // UTILS -----------------------------------------------------------------------
 
-fun getRows = width arr => {
-    let recurse = fun rows arr => 
-        if Array.isEmpty arr then 
-            rows
-
-        else 
-            Array.partition width arr 
-                |> Tuple.mapFirst (fun row => row :: rows) 
-                |> Tuple.apply recurse
-
-    ret recurse [] arr |> Array.reverse
+fun playBingo = numbers boards => {
+    ret Array.foldl
+        (fun [ i, boards ] n => [ i + 1, Array.map (mark i n) boards ])
+        ([ 0, boards ])
+        numbers
+        |> Tuple.second
 }
 
-fun getCols = width arr => {
-    ret getRows width arr
-        |> Array.foldr (fun cols row => Array.map2 (::) row cols) (Array.repeat width [])
+enum MarkedCell
+    = #marked _
+
+fun mark = i n board => {
+    let markRow = Array.map (fun c => when c is @Number x if x == n => #marked x else => c)
+    let markedRows = Array.map markRow board.rows
+
+    ret if Object.has 'winningNum' board then
+        board
+    
+    else if hasWinningRow markedRows then 
+        { rows: markedRows, winningNum: n, winningIndex: i }
+
+    else
+        { rows: markedRows }
+}
+
+fun unmarked = rows => {
+    let unmarkedRow = Array.filterMap (fun c => when c is @Number n => #just n else => #nothing)
+
+    ret Array.flatMap unmarkedRow rows
+}
+
+fun transpose = rows => {
+    ret Array.foldl (fun b r => Array.map2 (::) r b) (Array.repeat 5 []) rows
+}
+
+fun hasWinningRow = rows => {
+    let isCompleteRow = Array.all (fun c => when c is #marked _ => true else => false)
+
+    ret Array.any isCompleteRow rows || Array.any isCompleteRow (transpose rows)
 }
